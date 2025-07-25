@@ -1,5 +1,12 @@
-node_modules
-# Keep environment variables out of version control
+# Root-level ignores
+node_modules/
 .env
 
-/generated/prisma
+# Ignore client build and node_modules
+client/node_modules/
+client/build/
+
+# Ignore server node_modules and Prisma generated files
+server/node_modules/
+server/.env
+server/prisma/dev.db
