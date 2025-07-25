@@ -75,6 +75,11 @@
             margin-bottom: 15px;
         }
 
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
         .add-btn {
             background: linear-gradient(135deg, #4f46e5, #7c3aed);
             color: white;
@@ -206,7 +211,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>My Todo App</h1>
+            <h1>📝 My Todo App</h1>
+            <p>Stay organized and productive</p>
         </div>
 
         <div class="add-todo">
@@ -214,7 +220,11 @@
                 <input type="text" id="todoTitle" placeholder="What needs to be done?" maxlength="255">
             </div>
             <textarea id="todoDescription" placeholder="Add a description (optional)"></textarea>
-            <button class="add-btn" onclick="addTodo()">Add Todo</button>
+            <div class="button-group">
+                <button class="add-btn" id="addBtn" onclick="addTodo()">✨ Add Todo</button>
+                <button class="add-btn update-mode-btn" id="updateBtn" onclick="saveUpdate()" style="display: none; background: #f59e0b;">💾 Save Changes</button>
+                <button class="add-btn cancel-btn" id="cancelBtn" onclick="cancelEdit()" style="display: none; background: #6b7280;">❌ Cancel</button>
+            </div>
         </div>
 
         <div class="todos-container">
@@ -226,6 +236,9 @@
 
     <script>
         const API_BASE = 'http://localhost:3000';
+        let editingTodoId = null; // Track which todo is being edited
+
+        // Load todos when page loads
         document.addEventListener('DOMContentLoaded', loadTodos);
 
         async function loadTodos() {
@@ -262,13 +275,13 @@
                     <div class="todo-actions">
                         <button class="btn complete-btn ${todo.completed ? 'completed' : ''}" 
                                 onclick="toggleTodo('${todo.id}', ${!todo.completed})">
-                            ${todo.completed ? 'Undo' : ' Complete'}
+                            ${todo.completed ? '↩️ Undo' : '✅ Complete'}
                         </button>
                         <button class="btn update-btn" onclick="updateTodo('${todo.id}', '${escapeHtml(todo.title)}', '${escapeHtml(todo.description || '')}')">
-                            Update
+                            ✏️ Edit
                         </button>
                         <button class="btn delete-btn" onclick="deleteTodo('${todo.id}')">
-                            Delete
+                            🗑️ Delete
                         </button>
                     </div>
                 </div>
@@ -276,6 +289,12 @@
         }
 
         async function addTodo() {
+            // Don't add if in editing mode
+            if (editingTodoId) {
+                alert('Please save or cancel your current edit first');
+                return;
+            }
+
             const title = document.getElementById('todoTitle').value.trim();
             const description = document.getElementById('todoDescription').value.trim();
 
@@ -296,7 +315,7 @@
                 if (response.ok) {
                     document.getElementById('todoTitle').value = '';
                     document.getElementById('todoDescription').value = '';
-                    loadTodos();
+                    loadTodos(); // Reload todos
                 } else {
                     alert('Error adding todo');
                 }
@@ -317,7 +336,7 @@
                 });
 
                 if (response.ok) {
-                    loadTodos();
+                    loadTodos(); // Reload todos
                 } else {
                     alert('Error updating todo');
                 }
@@ -328,31 +347,46 @@
         }
 
         async function updateTodo(id, currentTitle, currentDescription) {
-            const newTitle = prompt('Enter new title:', currentTitle);
-            if (newTitle === null) return;
+            // Populate the input fields with current values
+            document.getElementById('todoTitle').value = currentTitle;
+            document.getElementById('todoDescription').value = currentDescription || '';
             
-            const newDescription = prompt('Enter new description:', currentDescription);
-            if (newDescription === null) return;
+            // Set editing mode
+            editingTodoId = id;
+            
+            // Show/hide appropriate buttons
+            document.getElementById('addBtn').style.display = 'none';
+            document.getElementById('updateBtn').style.display = 'inline-block';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+            
+            // Scroll to top so user can see the input fields
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // Focus on title input
+            document.getElementById('todoTitle').focus();
+        }
 
-            if (!newTitle.trim()) {
+        async function saveUpdate() {
+            const title = document.getElementById('todoTitle').value.trim();
+            const description = document.getElementById('todoDescription').value.trim();
+
+            if (!title) {
                 alert('Title cannot be empty');
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/todos/${id}`, {
+                const response = await fetch(`${API_BASE}/todos/${editingTodoId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        title: newTitle.trim(), 
-                        description: newDescription.trim() 
-                    })
+                    body: JSON.stringify({ title, description })
                 });
 
                 if (response.ok) {
-                    loadTodos(); 
+                    cancelEdit(); // Reset form
+                    loadTodos(); // Reload todos
                 } else {
                     alert('Error updating todo');
                 }
@@ -360,6 +394,20 @@
                 console.error('Error updating todo:', error);
                 alert('Error updating todo');
             }
+        }
+
+        function cancelEdit() {
+            // Clear the form
+            document.getElementById('todoTitle').value = '';
+            document.getElementById('todoDescription').value = '';
+            
+            // Reset editing state
+            editingTodoId = null;
+            
+            // Show/hide appropriate buttons
+            document.getElementById('addBtn').style.display = 'inline-block';
+            document.getElementById('updateBtn').style.display = 'none';
+            document.getElementById('cancelBtn').style.display = 'none';
         }
 
         async function deleteTodo(id) {
@@ -373,7 +421,7 @@
                 });
 
                 if (response.ok) {
-                    loadTodos(); 
+                    loadTodos(); // Reload todos
                 } else {
                     alert('Error deleting todo');
                 }
@@ -389,6 +437,7 @@
             return div.innerHTML;
         }
 
+        // Allow Enter key to add todo
         document.getElementById('todoTitle').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 addTodo();
